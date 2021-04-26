@@ -16,11 +16,6 @@ class SimulatedAnnealing:
         while temp >= self.threshold:
             iteration += 1
             current_energy = self.get_mdl_score(current_grammar, data)
-            print("interation number: " + str(iteration))
-            print("current energy: " + str(current_energy))
-            print("temprature: " + str(temp))
-            print(current_grammar)
-            print("\n")
             neighbor_energy = None
             while neighbor_energy is None:
                 neighbor = None
