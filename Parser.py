@@ -2,11 +2,25 @@ from Grammar import *
 import itertools
 from time import perf_counter
 
+# similar to Pred, but with id-equality
+class Chunk:
+    instances = {}
+    def __new__(cls, symbol, inputs):
+        key = symbol, tuple(inputs)
+        i = cls.instances.get(key)
+        if i:
+           return i
+        i = super(Chunk, cls).__new__(cls)
+        i.symbol = symbol
+        i.inputs = inputs
+        cls.instances[key] = i
+        return i
+
 
 def parse(grammar, string):
-    chart = {n: {} for n in grammar.non_terminals}   # sym -> {Pred -> prob}
-    agenda = {}  # Pred -> prob
-    goal = Pred(grammar.start, [(0, len(string))])
+    chart = {n: {} for n in grammar.non_terminals}   # sym -> {Chunk -> prob}
+    agenda = {}  # Chunk -> prob
+    goal = Chunk(grammar.start, [(0, len(string))])
     scan(grammar, string, agenda)
     start = perf_counter()
     while agenda and goal not in chart[grammar.start] and perf_counter() < start+5:
@@ -16,7 +30,7 @@ def parse(grammar, string):
         update_agenda(grammar, agenda, chart, current_best)
     if goal not in chart[grammar.start]:
         if perf_counter() > start+5:
-            print("Agenda: ", agenda, "\nGrammar: ", grammar, "\nString: ", string)
+            print("Timeout! Grammar: ", grammar, "\nString: ", string)
         return None
     else:
         return -chart[grammar.start][goal]
@@ -24,9 +38,9 @@ def parse(grammar, string):
 
 def update_agenda(grammar, agenda, chart, new_item):
     for rule in grammar.prules:
-        if not rule.terminating:
+        if not rule.terminating and any(new_item.symbol == prod.symbol for prod in rule.right):
             right = list(rule.right)
-            for perm in itertools.product(*(chart[v.symbol].keys() for v in right)):
+            for perm in itertools.product(*(chart[prod.symbol].keys() for prod in right)):
                 if new_item in perm:
                   sat = satisfies(perm, rule.left, right, chart)
                   if sat is not None:
@@ -38,10 +52,10 @@ def update_agenda(grammar, agenda, chart, new_item):
 def satisfies(perm, left, right, chart):
     inp_conv = {}
     new_prob = 0
-    for i in range(len(right)):
-        for j in range(len(perm[i].inputs)):
-            inp_conv[right[i].inputs[j]] = perm[i].inputs[j]
-        new_prob += chart[perm[i].symbol][perm[i]]
+    for chunk, pred in zip(perm, right):
+        for c_i, p_i in zip(chunk.inputs, pred.inputs):
+            inp_conv[p_i] = c_i
+        new_prob += chart[chunk.symbol][chunk]
     new_res = []
     for r in left.inputs:
         if len(r) == 1:
@@ -56,7 +70,7 @@ def satisfies(perm, left, right, chart):
         for i in range(len(new_res) - 1):
             if new_res[i][1] > new_res[i+1][0]:
                 return None
-    return [Pred(left.symbol, new_res), new_prob]
+    return [Chunk(left.symbol, new_res), new_prob]
 
 
 def isNew(v, chart, agenda, new_prob):
@@ -71,4 +85,4 @@ def scan(grammar, string, agenda):
         for rule in grammar.prules:
             if rule.terminating:
                 if rule.left.inputs[0] == string[i]:
-                    agenda[Pred(rule.left.symbol, [(i, i+1)])] = rule.prob
+                    agenda[Chunk(rule.left.symbol, [(i, i+1)])] = rule.prob
