@@ -1,52 +1,49 @@
 from Grammar import *
-import math
 import itertools
 from time import perf_counter
 
 
 def parse(grammar, string):
-    chart = {}
-    agenda = {}
-    goal = Var(grammar.start, [(0, len(string))])
+    chart = {n: {} for n in grammar.non_terminals}   # sym -> {Pred -> prob}
+    agenda = {}  # Pred -> prob
+    goal = Pred(grammar.start, [(0, len(string))])
     scan(grammar, string, agenda)
     start = perf_counter()
-    while agenda and goal not in chart and perf_counter() < start+20:
+    while agenda and goal not in chart[grammar.start] and perf_counter() < start+5:
         (current_best, weight) = max(agenda.items(), key=lambda x: x[1])
-        chart[current_best] = weight
+        chart[current_best.symbol][current_best] = weight
         del agenda[current_best]
         update_agenda(grammar, agenda, chart, current_best)
-    if goal not in chart:
+    if goal not in chart[grammar.start]:
+        if perf_counter() > start+5:
+            print("Agenda: ", agenda, "\nGrammar: ", grammar, "\nString: ", string)
         return None
     else:
-        return -chart[goal]
+        return -chart[grammar.start][goal]
 
 
 def update_agenda(grammar, agenda, chart, new_item):
     for rule in grammar.prules:
         if not rule.terminating:
-            if len(chart) < len(rule.right):
-                continue
-            for perm in itertools.permutations(chart.keys(), len(rule.right)):
+            right = list(rule.right)
+            for perm in itertools.product(*(chart[v.symbol].keys() for v in right)):
                 if new_item in perm:
-                  sat = satisfies(perm, rule, chart)
+                  sat = satisfies(perm, rule.left, right, chart)
                   if sat is not None:
+                      sat[1] += rule.prob
                       if isNew(sat[0], chart, agenda, sat[1]):
                           agenda[sat[0]] = sat[1]
 
 
-def satisfies(perm, rule, chart):
+def satisfies(perm, left, right, chart):
     inp_conv = {}
-    new_prob = math.log(rule.prob, 2)
-    for i in range(len(rule.right)):
-        if perm[i].symbol != rule.right[i].symbol:
-            return None
-        if perm[i].degree != rule.right[i].degree:
-            return None
+    new_prob = 0
+    for i in range(len(right)):
         for j in range(len(perm[i].inputs)):
-            inp_conv[rule.right[i].inputs[j]] = perm[i].inputs[j]
-        new_prob += chart[perm[i]]
+            inp_conv[right[i].inputs[j]] = perm[i].inputs[j]
+        new_prob += chart[perm[i].symbol][perm[i]]
     new_res = []
-    for r in rule.left.inputs:
+    for r in left.inputs:
         if len(r) == 1:
             new_res.append(inp_conv[r])
         else:
@@ -59,11 +56,11 @@ def satisfies(perm, rule, chart):
         for i in range(len(new_res) - 1):
             if new_res[i][1] > new_res[i+1][0]:
                 return None
-    return [Var(rule.left.symbol, new_res), new_prob]
+    return [Pred(left.symbol, new_res), new_prob]
 
 
 def isNew(v, chart, agenda, new_prob):
-    if v in chart:
+    if v in chart[v.symbol]:
         return False
     else:
         return (v not in agenda) or (agenda[v] != new_prob)
@@ -74,5 +71,4 @@ def scan(grammar, string, agenda):
         for rule in grammar.prules:
             if rule.terminating:
                 if rule.left.inputs[0] == string[i]:
-                    prob = math.log(rule.prob, 2)
-                    agenda[Var(rule.left.symbol, [(i, i+1)])] = prob
+                    agenda[Pred(rule.left.symbol, [(i, i+1)])] = rule.prob
