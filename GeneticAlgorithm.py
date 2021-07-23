@@ -1,7 +1,7 @@
 from Parser import *
 import random
 from time import perf_counter
-
+from graphics import *
 
 class GeneticAlgorithm:
     def __init__(self, steps, pop_size, penalty, mortality, mutation):
@@ -13,13 +13,34 @@ class GeneticAlgorithm:
         self.steps = steps
 
     def run(self, init_grammar, data):
+        win = GraphWin("GeneticAlgorithm (Ganbn)", 1800, 850)
         start = perf_counter()
-        pop = [(init_grammar, self.get_mdl_score(init_grammar, data))]
+        migrant = (init_grammar, self.get_mdl_score(init_grammar, data))
+        pops = [[migrant] for _ in range(10)]
+        plot = [[Polygon([]), Polygon([]), Polygon([])] for pop in pops]
         self.parse = perf_counter() - start
         for iteration in range(self.steps):
+          for p_i, pop in enumerate(pops):
+            if not (iteration % 100): # migrate
+                if migrant not in pop:
+                    pop.append(migrant)
+                    pop.sort(key=lambda x: x[1])
+                migrant = pop[int(random.expovariate(2./len(pop))) % len(pop)]
             scores = [s for g, s in pop]
             print("iteration %d score(%f, %f, %f) parse %f mutate %f" %
                 (iteration, scores[0], sum(scores)/len(scores), scores[-1], self.parse, self.mutate))
+            #win.plotPixel(iteration, (80*p_i)+(scores[0]/50), "green")
+            #win.plotPixel(iteration, (80*p_i)+(sum(scores)/len(scores)/50), "yellow")
+            #win.plotPixel(iteration, (80*p_i)+(scores[-1]/50), "red")
+            def update_plot(n, y, color):
+                plot[p_i][n].undraw();
+                plot[p_i][n] = Polygon(plot[p_i][n].getPoints() + [Point(iteration, (80*p_i)+(y/50))])
+                plot[p_i][n].setFill(color)
+                if iteration>1:
+                    plot[p_i][n].draw(win)
+            update_plot(0, scores[0], "green")
+            update_plot(1, sum(scores)/len(scores), "brown")
+            update_plot(2, scores[-1], "red")
             if not iteration % 10:
                 print(pop[0])
             neighbor_score = None

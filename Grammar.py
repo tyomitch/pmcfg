@@ -86,8 +86,8 @@ class Grammar:
 
     def getEncodingLength(self):
         lhs_bits = math.log(2 + len(self.variables) + len(self.terminals), 2)
-        rhs_bits = math.log(2 + len(self.variables), 2)
-        symbol_bits = math.log(len(self.non_terminals), 2)
+        rhs_bits = math.log(1 + len(self.variables), 2)
+        symbol_bits = math.log(1 + len(self.non_terminals), 2)
         total = 0
         for rule in self.prules:
             symbols = 1  # left non-terminal
@@ -109,6 +109,7 @@ class Grammar:
             self.replace_non_terminal_with_its_expansion,
             self.new_terminating_rule,
             self.connect_two_non_terminals,
+            self.concatenate_a_vector,
             self.add_ignored_non_terminal,
             self.delete_ignored_non_terminal,
             self.ignore_variable,
@@ -119,16 +120,17 @@ class Grammar:
             self.paste_inputs,
             self.mutate_terminal,
             self.mutate_non_terminal,
+            self.mutate_lhs_symbol,
             self.delete_a_rule]
 
-        while True:
+        res = None
+        while res is None or res == self:
             func = random.choice(neighbor_type)
             res = func()
-            if res is not None and res != self:
-                error = res.validate()
-                if error is not None:
-                    print("Invalid grammar: ", error, res, "\nProduced by: ", func)
-                return res.fix_probabilities()
+        error = res.validate()
+        if error is not None:
+            print("Invalid grammar: ", error, res, "\nProduced by: ", func)
+        return res.fix_probabilities()
 
     def update_rules(self, rules, nt=None):
         if nt is None:
@@ -146,6 +148,8 @@ class Grammar:
         if len(self.prules) < 2:
             return None
         deleted = random.choice(list(self.prules))
+        if deleted.left.symbol == self.start and len([rule for rule in self.prules if rule.left.symbol == self.start]) == 1:
+            return None
         return self.update_rules(self.prules - {deleted})
 
     def replace_non_terminal_with_its_expansion(self):
@@ -227,14 +231,16 @@ class Grammar:
         new_rule = self.replace_lhs_inputs(old_rule, deleted, replacement)
         return self.replace_rule(old_rule, new_rule)
 
+    def ignored_vs(self, rule):
+        return [v for pred in rule.right for v in pred.inputs
+                if not any(v in i for i in rule.left.inputs)]
+
     def use_ignored_variable(self):
-        old_rule = self.random_non_terminal_rule()
-        if not old_rule:
+        options = [rule for rule in self.prules if not rule.terminating and self.ignored_vs(rule)]
+        if not options:
             return None
-        ignored_vs = [v for pred in old_rule.right for v in pred.inputs
-                      if not any(v in i for i in old_rule.left.inputs)]
-        if not ignored_vs:
-            return None
+        old_rule = random.choice(options)
+        ignored_vs = self.ignored_vs(old_rule)
         deleted = random.choice(old_rule.left.inputs)
         replacement = list(deleted)
         replacement.insert(random.randint(0, len(deleted)), random.choice(ignored_vs))
@@ -308,6 +314,8 @@ class Grammar:
         if rule.left.symbol == nt:
             left_inputs[i - 1] += left_inputs[i]
             left_inputs.pop(i)
+        if "" in left_inputs:
+            return None
         return PRule(Pred(rule.left.symbol, left_inputs), right)
 
     def paste_inputs(self):
@@ -317,6 +325,9 @@ class Grammar:
         lhs = random.choice(options)
         i = random.randint(1, lhs.dim - 1)
         rules = [self.paste_input(rule, lhs.symbol, i) for rule in self.prules]
+        if any(rule is None for rule in rules):
+        # `None in rules` wouldn't work, as we'd like to keep PRule.__eq__ as simple as possible
+            return None
         return self.update_rules(rules)
 
     def swap_inputs(self):
@@ -355,14 +366,28 @@ class Grammar:
         if not old_rule:
             return None
         pred = random.choice(list(old_rule.right))
-        others = {rule.left.symbol for rule in self.prules if rule.left.symbol != pred.symbol and rule.left.dim == pred.dim}
+        others = {rule.left.symbol for rule in self.prules if rule.left.dim == pred.dim}
         if old_rule.left.symbol != self.start:
             others -= {self.start}
+        if pred.inputs == old_rule.left.inputs:
+            others -= {old_rule.left.symbol}
         if not others:
             return None
         nt = random.choice(list(others))
         replacement = Pred(nt, pred.inputs)
         new_rule = PRule(old_rule.left, (old_rule.right - {pred}) | {replacement})
+        return self.replace_rule(old_rule, new_rule)
+
+    def mutate_lhs_symbol(self):
+        old_rule = random.choice(list(self.prules))
+        others = {rule.left.symbol for rule in self.prules if rule.left.dim == old_rule.left.dim}
+        if not old_rule.terminating:
+            others -= {pred.symbol for pred in old_rule.right if pred.inputs == old_rule.left.inputs}
+        if not others:
+            return None
+        nt = random.choice(list(others))
+        replacement = Pred(nt, old_rule.left.inputs)
+        new_rule = PRule(replacement, old_rule.right)
         return self.replace_rule(old_rule, new_rule)
 
     def connect_two_non_terminals(self):
@@ -390,6 +415,32 @@ class Grammar:
                        self.prules | {PRule(Pred(nt1, v), [Pred(nt2.symbol, v)])},
                        self.start)
 
+    def concatenate_a_vector(self):
+        options2 = [rule.left.symbol for rule in self.prules if rule.left.dim == 1]
+        if not options2:
+            print(self)
+        nt2 = random.choice(options2)
+        nt3 = random.choice(options2)
+        if nt2 == self.start or nt3 == self.start:
+            nt1 = self.start
+            nts = self.non_terminals
+        else:
+            options1 = list(set(options2) - {self.start})
+            if not options1 or random.getrandbits(1):
+                nt1 = self.find_unused_sign()
+                nts = self.non_terminals | {nt1}
+            else:
+                nt1 = random.choice(options1)
+                nts = self.non_terminals
+        vs = list(self.variables)
+        while len(vs) < 2:
+            vs.append(self.find_unused_sign(vs))
+        new_rule = PRule(Pred(nt1, [vs[0] + vs[1]]),
+                        [Pred(nt2, [vs[0]]), Pred(nt3, [vs[1]])])
+        return Grammar(self.terminals, nts, vs,
+                       self.prules | {new_rule},
+                       self.start)
+
     def new_terminating_rule(self):
         possible_terminals = {t: 0 for t in self.terminals}
         for rule in self.prules:
@@ -403,7 +454,7 @@ class Grammar:
             n = self.find_unused_sign()
             nts = self.non_terminals | {n}
         else:
-            n = random.choice(list(self.non_terminals))
+            n = random.choice([rule.left.symbol for rule in self.prules if rule.left.dim == 1])
             nts = self.non_terminals
         return self.update_rules(self.prules | {PRule(Pred(n, [t]), None)}, nts)
 
@@ -441,6 +492,8 @@ class Grammar:
                     return "LHS has duplicate tokens"
                 if any(len(i) != 1 for pred in rule.right for i in pred.inputs):
                     return "RHS predicate argument is not a variable"
+                if "" in rule.left.inputs:
+                    return "LHS has empty input"
                 vs = "".join("".join(pred.inputs) for pred in rule.right)
                 if len(vs) != len(set(vs)):
                     return "RHS has duplicate tokens"

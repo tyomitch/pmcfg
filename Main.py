@@ -12,7 +12,10 @@ def main():
 #"bbbbbbbbbb", "abababababab", "babababababa", "aaabbbaaabbb", "bbbaaabbbaaa", "bbaabbbaab", "bbbbabbbba"
                   ]
     data_Lpal = ["a", "b", "aa", "bb", "aaa", "aba", "bab", "bbb", "aaaa", "abba", "baab", "bbbb",
-                 "aabaa", "baaab", "abbba", "abaaba", "abbabba"]
+                 "aabaa", "baaab", "abbba", "abaaba", "abbabba",
+                 "abbaabba", "abababa", "aabaaabaa", "babab", "babbab", "abaaaba", "aaabaaa", "aabbbaa", "abbbba", "babbbbab"]
+
+    data_Lanbn = ["ab", "aabb", "aaabbb", "aaaabbbb", "aaaaabbbbb"]
 
     Gcon = Grammar(["a", "b"], ["P", "S"], ["X", "Y"],
                    [
@@ -22,8 +25,8 @@ def main():
                        PRule(Pred("S", ["X"]), [Pred("P", ["X"])])
                    ])
 
-    GA = GeneticAlgorithm(30, 20, .5)
-    result = GA.run(Gcon, data_Lcopy)
+    GA = GeneticAlgorithm(steps=10000, pop_size=200, penalty=35, mortality=.5, mutation=.6)
+    result = GA.run(Gcon, data_Lanbn)
     print(result)
 
 
