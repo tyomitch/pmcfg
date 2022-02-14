@@ -1,27 +1,4 @@
-import nltk, json, re, uniplot, np, itertools
-from nltk.corpus import treebank
-"""
-rules = sum((t.productions() for t in treebank.parsed_sents()), [])
-print(len(rules))
-rules = set(rules)
-print(len(rules))
-cfg = nltk.grammar.CFG(nltk.grammar.Nonterminal('S'), set(prod))
-with open(r"grammar.json", "w") as f:
-  json.dump({"nts": list({str(p.lhs()) for p in set(prod)}), "rules": str(cfg).split("\n")[1:]}, f, indent=1)
-"""
-input = json.load(open("grammar.json"))["rules"]
-NONTERM_RE = re.compile(r"( [-#$',.0123456789:=ABCDEFGHIJLMNOPQRSTUVWXYZ`|]+ ) \s*", re.VERBOSE)
-
-def nonterm_parser(string, pos):
-    m = NONTERM_RE.match(string, pos)
-    if not m:
-        raise ValueError("Expected a nonterminal, found: " + string[pos:])
-    return (nltk.grammar.Nonterminal(m.group(1)), m.end())
-
-start = nltk.grammar.Nonterminal('S')
-cfg = nltk.grammar.CFG(start, nltk.grammar.read_grammar(input, nonterm_parser)[1])
-print(len(cfg.productions())) # misses # -> '#'
-
+import nltk, itertools, matplotlib.pyplot as plt
 
 stats = {}
 
@@ -42,9 +19,9 @@ def parse(sent, stack):
 
     if stack and stack[-1] == "(" + sent.label() + ")":
       stack.pop()
-      print("shift projected word", sent[0], sent.label())
+#      print("shift projected word", sent[0], sent.label())
     else:
-      print("shift word", sent[0], sent.label())
+#      print("shift word", sent[0], sent.label())
       stack.append(sent.label())
   elif sent[0].label() == sent.label():
     for s in sent:
@@ -55,10 +32,10 @@ def parse(sent, stack):
 
     if stack and stack[-1] == "(" + sent.label() + ")":
       stack.pop()
-      print("complete bottom-up projected", production(sent))
+#      print("complete bottom-up projected", production(sent))
     else:
       stack.append(sent.label())
-      print("complete bottom-up", production(sent))
+#      print("complete bottom-up", production(sent))
 
   else:
     parse(sent[0], stack)
@@ -67,9 +44,10 @@ def parse(sent, stack):
 
     if stack and stack[-1] == "(" + sent.label() + ")":
       stack.pop()
-      print("project and complete", production(sent))
+#      print("project and complete", production(sent))
     else:
-      print("project", production(sent))
+#      print("project", production(sent))
+      pass
 
     stack.append("[" + sent.label() + "]")
     for s in reversed(sent[1:]):
@@ -84,51 +62,87 @@ def parse(sent, stack):
     if stack and stack[-1] == "[" + sent.label() + "]":
       stack.pop()
     stack.append(sent.label())
-    print("complete projected:", production(sent))
-
+#    print("complete projected:", production(sent))
 
   report(stack)
 
 
-treebank = nltk.corpus.util.LazyCorpusLoader("treebank/combined",nltk.corpus.BracketParseCorpusReader,r".*\.mrg",tagset="wsj",encoding="utf-8")
+overall = {}
 
+#fig, axes = plt.subplots(7, sharex=True)
+axes = plt.figure().add_gridspec(7, hspace=0).subplots(sharex=True)
 
-sent = nltk.tree.Tree.fromstring("(S (NP (NP (DT the) (NN horse)) (VP (VBN raced) (PP (IN past) (NP (DT the) (NN barn))))) (VP (VBD fell)))")
-processed = 0
+nltk.data.path.append(r"C:\Users\tyomitch\Documents\ontonotes-release-5.0\data\files\data\english\annotations")
 
-for i, sent in enumerate(treebank.parsed_sents()):
+corpora = {"bc": "Broadcast Conversation", "bn": "Broadcast News", "mz": "Magazine", "nw": "Newswire",
+           "pt": "Pivot", "tc": "Telephone Conversation", "wb": "Web Text"}
 
-   if sent.label() in ('FW', 'CODE', 'WHNP', 'INTJ', 'WHPP', 'UCP', 'ADJP', 'VP') or i==5131:
-      continue
+for corpus, axis in zip(corpora, axes):
+   axis.set_title(corpora[corpus], y=1.0, pad=-14)
+   axis.label_outer()
 
-   for pos in sent.treepositions():
-      n = sent[pos]
-      if isinstance(n, nltk.tree.Tree):
-         n.set_label(n.label().split("-")[0])
+   treebank = nltk.corpus.util.LazyCorpusLoader(corpus, nltk.corpus.BracketParseCorpusReader, r".*\.parse", nltk_data_subdir="")
 
-   if sent.label() in ('FRAG', 'NP', 'PP', 'ADVP', 'X', 'SBAR'):
-      continue
+   processed = 0
 
-   stack = []
-   parse(sent, stack)
-   print(i)
-   assert(stack in (['S'], ['SINV'], ['SBARQ'], ['SQ']))
-   processed += 1
+   for i, sent in enumerate(treebank.parsed_sents()):
 
-stats = list(stats.items())
-stats.sort(key = lambda x: -x[1])
+      try:
+        if len(sent)==2 and sent[0].label() in ("XX", "``"):
+           sent = sent[1]
+        else:
+           assert(sent.label() == 'TOP' and (len(sent)==1 or (len(sent)==2 and sent[1].label()==".")))
+           sent = sent[0]
 
-print(processed, "sentences processed, out of", i, "total")
-print("Most frequent stacks:")
-print("\n".join(" ".join(reversed(s))+": "+str(freq) for s, freq in stats[:10]))
+        if sent.label() in ('FW', 'CODE', 'WHNP', 'WHPP',
+                            'WHADVP', 'WHADJP','META', 'XX', 'PRN', 'LST', '.', ','):
+           continue
 
-bins = max(len(s) for s, freq in stats)
-print(bins, "bins")
-uniplot.histogram(list(itertools.chain.from_iterable([len(s)]*freq for s, freq in stats)), bins=bins-1, bins_min=(11+bins)/12, bins_max=(1+bins*11)/12, width=100, y_gridlines=[])
+        for pos in sent.treepositions():
+           n = sent[pos]
+           if isinstance(n, nltk.tree.Tree):
+              n.set_label(n.label().split("-")[0])
 
-#print(np.histogram(uniplot.multi_series.MultiSeries(ys=sum(([len(s)]*freq for s, freq in stats), [])).ys[0], bins=bins-1, range=(1, bins)))
+        if sent.label() in ('FRAG', 'NP', 'PP', 'ADVP', 'X', 'SBAR',
+                            'VP', 'UCP', 'ADJP', 'INTJ'):
+           continue
 
-stats = [(len(s), freq) for s, freq in stats]
-keys = {l for l, freq in stats}
-stats = {l: sum(freq for ll, freq in stats if ll==l) for l in keys}
-print(stats)
+        stack = []
+        parse(sent, stack)
+        assert(stack in (['S'], ['SINV'], ['SBARQ'], ['SQ']))
+        processed += 1
+      except:
+        print(corpus, i)
+        raise
+
+   stats = list(stats.items())
+   stats.sort(key = lambda x: -x[1])
+
+   print(processed, "sentences processed, out of", i, "total")
+   print("Most frequent stacks:")
+   print("\n".join(" ".join(reversed(s))+": "+str(freq) for s, freq in stats[:10]))
+
+   for s, freq in stats:
+      if s in overall:
+         overall[s] += freq
+      else:
+         overall[s] = freq
+
+   bins = max(len(s) for s, freq in stats)
+   #print(bins, "bins")
+   #uniplot.histogram(list(itertools.chain.from_iterable([len(s)]*freq for s, freq in stats)), bins=bins-1, bins_min=(11+bins)/12, bins_max=(1+bins*11)/12, width=100, y_gridlines=[])
+   axis.hist(list(itertools.chain.from_iterable([len(s)]*freq for s, freq in stats)), bins=bins-1, log=True)
+   #print(np.histogram(uniplot.multi_series.MultiSeries(ys=sum(([len(s)]*freq for s, freq in stats), [])).ys[0], bins=bins-1, range=(1, bins)))
+
+   #stats = [(len(s), freq) for s, freq in stats]
+   #keys = {l for l, freq in stats}
+   #stats = {l: sum(freq for ll, freq in stats if ll==l) for l in keys}
+   #print(stats)
+   stats = {}
+
+plt.show()
+
+overall = list(overall.items())
+overall.sort(key = lambda x: -x[1])
+print("Overall most frequent stacks:")
+print("\n".join(" ".join(reversed(s))+": "+str(freq) for s, freq in overall[:10]))

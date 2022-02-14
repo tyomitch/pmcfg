@@ -1,0 +1,96 @@
+13525 sentences processed, out of 16206 total
+Most frequent stacks:
+S: 12905
+[S]: 11674
+VP (.) [S]: 11466
+NP: 6957
+NP (VP) (.) [S]: 6143
+[NP]: 5893
+[NP] (VP) (.) [S]: 5212
+(VP) (.) [S]: 4963
+(NP) (VP) (.) [S]: 4096
+NP [VP] (.) [S]: 3999
+11706 sentences processed, out of 13334 total
+Most frequent stacks:
+S: 12917
+NP: 10699
+VP (.) [S]: 9807
+[S]: 9636
+[NP]: 7613
+(VP) (.) [S]: 6849
+NP [VP] (.) [S]: 3403
+VBZ (VP) (.) [S]: 3106
+VP [VP] (.) [S]: 3087
+VBD (VP) (.) [S]: 2880
+7592 sentences processed, out of 8332 total
+Most frequent stacks:
+S: 8163
+VP (.) [S]: 5500
+NP: 5437
+[S]: 5313
+[NP]: 3462
+(VP) (.) [S]: 2669
+NP (VP) (.) [S]: 2641
+NP [VP] (.) [S]: 2149
+(NP) (VP) (.) [S]: 1911
+[NP] (VP) (.) [S]: 1818
+40853 sentences processed, out of 43192 total
+Most frequent stacks:
+S: 43633
+NP: 35257
+VP (.) [S]: 33081
+[S]: 32184
+[NP]: 21116
+(VP) (.) [S]: 19089
+VBD (VP) (.) [S]: 13453
+NP (VP) (.) [S]: 13006
+NP [VP] (.) [S]: 11161
+VP [VP] (.) [S]: 10040
+24876 sentences processed, out of 25168 total
+Most frequent stacks:
+S: 26156
+VP (.) [S]: 20838
+[S]: 19402
+NP: 18373
+[NP]: 15438
+(VP) (.) [S]: 12049
+VBD (VP) (.) [S]: 10718
+NP (VP) (.) [S]: 7341
+PRP: 6846
+[NP] (VP) (.) [S]: 6168
+10716 sentences processed, out of 15890 total
+Most frequent stacks:
+S: 10529
+VP [S]: 5602
+NP: 4902
+[NP]: 4745
+[S]: 4635
+VP (.) [S]: 3827
+PRP: 3746
+CC: 2927
+NP (VP) [S]: 2879
+[NP] (VP) [S]: 2748
+14696 sentences processed, out of 16438 total
+Most frequent stacks:
+S: 15603
+[S]: 11034
+VP (.) [S]: 10636
+NP: 9849
+[NP]: 7437
+(VP) (.) [S]: 5358
+NP (VP) (.) [S]: 4596
+NP [VP] (.) [S]: 3695
+(NP) (VP) (.) [S]: 3473
+[NP] (VP) (.) [S]: 3424
+Overall most frequent stacks:
+S: 129906
+VP (.) [S]: 95155
+[S]: 93878
+NP: 91474
+[NP]: 65704
+(VP) (.) [S]: 52523
+NP (VP) (.) [S]: 38402
+VBD (VP) (.) [S]: 34905
+NP [VP] (.) [S]: 31377
+[NP] (VP) (.) [S]: 28948
+123964 sentences processed, out of 138560 total
