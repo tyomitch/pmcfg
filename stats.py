@@ -4,7 +4,7 @@ stats = {}
 
 def report(stack):
 #  print("stack:", stack)
-  key = tuple(stack)
+  key = tuple(i for i in stack if not (i.startswith('(') and i.endswith(')') or i.startswith("[!")))
   if key not in stats:
     stats[key] = 1
   else:
@@ -13,7 +13,7 @@ def report(stack):
 def production(node):
   return node.label() + " -> " + " ".join(n.label() for n in node)
 
-def parse(sent, stack):
+def parse(sent, stack, projected=False):
   if sent.height() == 2: #only leave(s)
     assert(len(sent) == 1)
 
@@ -49,17 +49,17 @@ def parse(sent, stack):
 #      print("project", production(sent))
       pass
 
-    stack.append("[" + sent.label() + "]")
+    stack.append("[" + ('!' if projected else '') + sent.label() + "]")
     for s in reversed(sent[1:]):
       stack.append("(" + s.label() + ")")
 
     report(stack)
 
     for s in sent[1:]:
-      parse(s, stack)
+      parse(s, stack, True)
       stack.pop() # successful prediction
 
-    if stack and stack[-1] == "[" + sent.label() + "]":
+    if stack and stack[-1] in ("[" + sent.label() + "]", "[!" + sent.label() + "]"):
       stack.pop()
     stack.append(sent.label())
 #    print("complete projected:", production(sent))
